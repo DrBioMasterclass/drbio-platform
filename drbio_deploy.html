@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DrBio — NEET Content Intelligence Platform</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #080c0a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #d8f0e4; }
+    select, input, textarea { outline: none; font-family: inherit; }
+    select option { background: #0a100d; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #080c0a; }
+    ::-webkit-scrollbar-thumb { background: #1a2820; border-radius: 3px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── API KEY GATE ── */
+    #api-gate {
+      position: fixed; inset: 0; background: #080c0a;
+      display: flex; align-items: center; justify-content: center; z-index: 1000;
+    }
+    #api-gate .box {
+      background: #0e1410; border: 1px solid #1a2820; border-radius: 16px;
+      padding: 36px 32px; max-width: 420px; width: 90%;
+    }
+    #api-gate .logo { color: #00c97a; font-size: 22px; font-weight: 500; margin-bottom: 6px; }
+    #api-gate .sub { color: #3a6a50; font-size: 13px; margin-bottom: 28px; }
+    #api-gate label { display: block; font-size: 11px; color: #3a6a50; text-transform: uppercase;
+      letter-spacing: 0.6px; font-weight: 500; margin-bottom: 7px; }
+    #api-gate input {
+      width: 100%; padding: 10px 14px; background: #0a100d; border: 1px solid #1a2820;
+      border-radius: 8px; color: #c0e8d0; font-size: 14px; margin-bottom: 16px;
+    }
+    #api-gate button {
+      width: 100%; padding: 11px; background: #00c97a; color: #021a0a;
+      font-weight: 500; font-size: 14px; border: none; border-radius: 8px; cursor: pointer;
+    }
+    #api-gate .hint { font-size: 11px; color: #3a6a50; margin-top: 14px; text-align: center; }
+    #api-gate .hint a { color: #00c97a; }
+    #api-gate .err { font-size: 12px; color: #ff6b6b; margin-bottom: 10px; display: none; }
+  </style>
+</head>
+<body>
+
+<!-- ── API KEY GATE (shown on first visit) ── -->
+<div id="api-gate">
+  <div class="box">
+    <div class="logo">🧬 DrBio</div>
+    <div class="sub">NEET Content Intelligence Platform</div>
+    <label>Your Anthropic API Key</label>
+    <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." />
+    <div class="err" id="api-err">Invalid key format. Should start with sk-ant-</div>
+    <button onclick="saveKey()">Enter Platform →</button>
+    <p class="hint">Get your key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a><br/>Key is stored only in your browser (localStorage).</p>
+  </div>
+</div>
+
+<div id="root"></div>
+
+<script>
+  // ── API KEY MANAGEMENT ──────────────────────────────────────────────
+  function saveKey() {
+    const val = document.getElementById('api-key-input').value.trim();
+    const err = document.getElementById('api-err');
+    if (!val.startsWith('sk-ant-')) { err.style.display = 'block'; return; }
+    err.style.display = 'none';
+    localStorage.setItem('drbio_api_key', val);
+    document.getElementById('api-gate').style.display = 'none';
+  }
+  function getKey() { return localStorage.getItem('drbio_api_key') || ''; }
+  // Show gate only if no key saved
+  if (getKey()) document.getElementById('api-gate').style.display = 'none';
+</script>
+
+<script type="text/babel">
+const { useState } = React;
+
+// ── CONFIG ──────────────────────────────────────────────────────────────
+const green="#00c97a",darkBg="#080c0a",cardBg="#0e1410",border="#1a2820",muted="#3a6a50",textSec="#7aaa90";
+const TABS=["Content Creator","Content Analyzer","Strategy Planner","Production Hub","Channel Strategy"];
+
+// ── FULL NCERT SYLLABUS ─────────────────────────────────────────────────
+const NEET_TOPICS={
+  "XI — Unit 1: Diversity in Living World":["What is Living? Biodiversity & Need for Classification","Three Domains of Life — Taxonomy & Systematics","Concept of Species & Taxonomical Hierarchy","Binomial Nomenclature","Tools for Taxonomy — Museums, Zoos, Herbaria, Botanical Gardens","Five Kingdom Classification","Monera — Salient Features & Classification","Protista — Salient Features & Classification","Fungi — Major Groups, Lichens","Viruses and Viroids","Algae — Salient Features & Classification","Bryophytes — Salient Features & Classification","Pteridophytes — Salient Features & Classification","Gymnosperms — Salient Features & Classification","Angiosperms — Classification up to Class","Animal Kingdom — Non-Chordates (up to Phyla)","Animal Kingdom — Chordates (up to Classes)"],
+  "XI — Unit 2: Structural Organisation in Plants":["Morphology of Root, Stem & Leaf","Modifications of Root, Stem & Leaf","Inflorescence — Cymose & Racemose","Flower — Structure & Parts","Fruit & Seed — Structure & Types","Anatomy of Root — Dicot & Monocot (TS)","Anatomy of Stem — Dicot & Monocot (TS)","Anatomy of Leaf","Plant Tissues — Meristematic & Permanent"],
+  "XI — Unit 2: Structural Organisation in Animals":["Animal Tissues — Epithelial, Connective, Muscular, Neural","Cockroach — Morphology & Anatomy","Cockroach — Digestive, Circulatory & Respiratory Systems","Cockroach — Nervous & Reproductive Systems"],
+  "XI — Unit 3: Cell Structure and Function":["Cell Theory & Types — Prokaryotic vs Eukaryotic","Cell Envelope, Cell Membrane & Cell Wall","Endomembrane System — ER, Golgi, Lysosomes, Vacuoles","Mitochondria — Structure & Function","Plastids — Chloroplast, Chromoplast, Leucoplast","Ribosomes, Microbodies, Cytoskeleton","Cilia, Flagella & Centrioles","Nucleus — Nuclear Membrane, Chromatin, Nucleolus","Biomolecules — Carbohydrates: Structure & Function","Biomolecules — Proteins: Structure & Function","Biomolecules — Lipids: Structure & Function","Biomolecules — Nucleic Acids: DNA & RNA","Enzymes — Types, Properties & Enzyme Action","Cell Cycle — Phases & Regulation","Mitosis — Stages & Significance","Meiosis — Stages & Significance"],
+  "XI — Unit 4: Plant Physiology":["Transport in Plants — Diffusion, Facilitated Diffusion, Active Transport","Plant Water Relations — Imbibition, Water Potential, Osmosis, Plasmolysis","Long Distance Transport — Absorption, Apoplast, Symplast","Transpiration — Stomatal Opening & Closing, Transpiration Pull","Root Pressure & Guttation","Uptake & Translocation of Mineral Nutrients","Phloem Transport — Mass Flow Hypothesis","Mineral Nutrition — Macro & Micronutrients, Deficiency Symptoms","Mineral Toxicity & Hydroponics","Nitrogen Metabolism — Nitrogen Cycle, Biological Nitrogen Fixation","Photosynthesis — Overview & Where It Occurs","Photosynthetic Pigments (Elementary)","Light Reactions — Photochemical Phase, Cyclic & Non-Cyclic Photophosphorylation","Dark Reactions — Calvin Cycle (Biosynthetic Phase)","Chemiosmotic Hypothesis","Photorespiration, C3 & C4 Pathways","Factors Affecting Photosynthesis","Respiration — Glycolysis","Fermentation — Anaerobic Respiration","TCA Cycle (Krebs Cycle)","Electron Transport System & Oxidative Phosphorylation","Energy Relations — ATP Yield, Amphibolic Pathways, RQ","Plant Growth — Phases, Rate, Conditions","Differentiation, Dedifferentiation & Redifferentiation","Plant Growth Regulators — Auxin, Gibberellin, Cytokinin","Plant Growth Regulators — Ethylene & ABA","Seed Dormancy, Vernalisation & Photoperiodism"],
+  "XI — Unit 5: Human Physiology":["Digestion — Alimentary Canal & Digestive Glands","Digestion — Enzymes & GI Hormones, Peristalsis","Absorption & Assimilation of Proteins, Carbohydrates, Fats","Digestive Disorders — PEM, Jaundice, Diarrhea, Constipation","Breathing — Respiratory System in Humans","Mechanism of Breathing & Regulation","Exchange & Transport of Gases","Respiratory Volumes & Respiratory Disorders","Blood — Composition, Blood Groups, Coagulation","Lymph — Composition & Function","Human Heart — Structure & Cardiac Cycle","ECG, Cardiac Output & Double Circulation","Regulation of Cardiac Activity & Circulatory Disorders","Excretion — Modes: Ammonotelism, Ureotelism, Uricotelism","Human Excretory System — Structure & Function","Urine Formation & Osmoregulation","Regulation of Kidney Function — ADH, Renin-Angiotensin, ANF","Excretory Disorders — Uraemia, Renal Failure, Dialysis","Locomotion — Types of Movement","Skeletal Muscle — Contractile Proteins & Muscle Contraction","Skeletal System, Joints & Musculoskeletal Disorders","Neuron & Nerves — Structure & Types","CNS, PNS & Visceral Nervous System","Nerve Impulse — Generation & Conduction","Reflex Action, Sensory Perception & Sense Organs","Eye — Structure & Function","Ear — Structure & Function","Endocrine Glands — Overview & Hormones","Hypothalamus & Pituitary — Functions & Disorders","Thyroid, Parathyroid & Pineal — Functions & Disorders","Adrenal Gland — Cortex & Medulla, Functions","Pancreas & Gonads — Hormones & Disorders","Mechanism of Hormone Action"],
+  "XII — Unit 1: Reproduction":["Reproduction in Organisms — Asexual & Sexual Modes","Asexual Reproduction — Binary Fission, Sporulation, Budding, Fragmentation","Vegetative Propagation in Plants","Flower Structure & Development of Gametophytes","Pollination — Types, Agencies & Outbreeding Devices","Pollen-Pistil Interaction & Double Fertilization","Post-Fertilization Events — Endosperm, Embryo, Seed, Fruit","Apomixis, Parthenocarpy & Polyembryony","Human Reproduction — Male Reproductive System","Human Reproduction — Female Reproductive System","Gametogenesis — Spermatogenesis & Oogenesis","Menstrual Cycle","Fertilization, Embryo Development & Implantation","Pregnancy, Parturition & Lactation","Reproductive Health — STDs & Birth Control Methods","Contraception, MTP & Amniocentesis","Infertility — IVF, ZIFT, GIFT"],
+  "XII — Unit 2: Genetics & Evolution":["Mendelian Inheritance — Laws & Monohybrid Cross","Mendelian Inheritance — Dihybrid Cross & Test Cross","Deviations from Mendelism — Incomplete Dominance & Codominance","Multiple Alleles & Blood Group Inheritance","Pleiotropy & Polygenic Inheritance","Chromosome Theory of Inheritance","Sex Determination — Humans, Birds, Honey Bee","Linkage & Crossing Over","Sex-Linked Inheritance — Haemophilia & Colour Blindness","Mendelian Disorders — Thalassemia, Sickle Cell Anaemia","Chromosomal Disorders — Down's, Turner's, Klinefelter's Syndromes","Search for Genetic Material — DNA as Genetic Material","Structure of DNA & RNA","DNA Packaging & Nucleosome","DNA Replication","Central Dogma — Transcription & Genetic Code","Translation — Protein Synthesis","Gene Expression & Regulation — Lac Operon","Genome & Human Genome Project","DNA Fingerprinting","Origin of Life","Biological Evolution — Evidences (Fossil, Anatomy, Embryology, Molecular)","Darwin's Contribution & Modern Synthetic Theory","Mechanism of Evolution — Mutation, Recombination, Natural Selection","Types of Natural Selection","Gene Flow, Genetic Drift & Hardy-Weinberg Principle","Adaptive Radiation & Human Evolution"],
+  "XII — Unit 3: Biology & Human Welfare":["Health & Disease — Pathogens Overview","Human Diseases — Malaria & Filariasis","Human Diseases — Typhoid, Pneumonia, Common Cold","Human Diseases — Amoebiasis, Ascariasis, Ringworm","Basic Immunology — Innate & Acquired Immunity","Vaccines — Types & Mechanism","Cancer — Types, Causes & Treatment","HIV & AIDS","Adolescence, Drug & Alcohol Abuse","Plant Breeding & Biofortification","Tissue Culture & Single Cell Protein","Apiculture & Animal Husbandry","Microbes in Household Food Processing","Microbes in Industrial Production","Microbes in Sewage Treatment & Energy Generation","Biocontrol Agents & Biofertilizers"],
+  "XII — Unit 4: Biotechnology":["Principles of Biotechnology — Genetic Engineering Overview","Recombinant DNA Technology — Tools & Steps","Recombinant DNA Technology — Process & Applications","Human Insulin Production & Gene Therapy","Vaccine Production via Biotechnology","Genetically Modified Organisms — Bt Crops","Transgenic Animals","Biosafety Issues — Biopiracy & Patents"],
+  "XII — Unit 5: Ecology & Environment":["Habitat, Niche & Ecological Adaptations","Population Interactions — Mutualism & Competition","Population Interactions — Predation & Parasitism","Population Attributes — Growth, Birth Rate, Death Rate, Age Distribution","Ecosystems — Patterns & Components","Productivity & Decomposition","Energy Flow & Ecological Pyramids","Nutrient Cycling — Carbon & Phosphorous Cycles","Ecological Succession","Ecological Services","Concept & Patterns of Biodiversity","Importance & Loss of Biodiversity","Biodiversity Conservation — Hotspots, Red Data Book, Biosphere Reserves","National Parks & Sanctuaries","Air Pollution & Its Control","Water Pollution & Its Control","Agrochemicals, Solid & Radioactive Waste Management","Greenhouse Effect & Global Warming","Ozone Depletion & Deforestation"],
+};
+
+const FORMATS={YouTube:["F1 — Chapter Explainer","F2 — MCQ Practice","F8 — Exam Tips","F9 — Behind the Teaching","Full Lecture Script","Video Title + Description + Tags","Chapter Breakdown","Thumbnail Concept","Community Post"],Instagram:["F3 — DPP Reel","F4 — Trap Short","F5 — Specimen Reel","F6 — Carousel / Mindmap","F7 — Mnemonic Reel","Caption + Hashtags","Story Sequence"],LinkedIn:["Thought Leadership Post","Carousel Post Outline","Case Study Post","Poll Post"]};
+
+const WEEK1=[
+  {day:1,date:"Mon",platform:"YouTube",format:"F1 — Chapter Explainer",topic:"The Living World — Biodiversity + Nomenclature (Ch 1)",face:"Face hook → iPad",status:"Plan",notes:"PYQ: Binomial nomenclature. Linnaeus fact for story."},
+  {day:2,date:"Mon",platform:"Instagram",format:"F6 — Carousel",topic:"Mindmap: Taxonomic Categories (Kingdom → Species)",face:"N/A",status:"Plan",notes:"Post same day as YouTube upload"},
+  {day:3,date:"Tue",platform:"Instagram",format:"F5 — Specimen Reel",topic:"Real specimen: Tulsi / Hibiscus — 'Idu Ocimum tenuiflorum'",face:"Full face (outdoor)",status:"Plan",notes:"Film in morning light. 45 sec."},
+  {day:4,date:"Wed",platform:"YouTube",format:"F2 — MCQ Practice",topic:"MCQ Practice: Ch 1 The Living World — 12 questions",face:"Face intro → iPad",status:"Plan",notes:"Release 3 days after chapter video"},
+  {day:5,date:"Wed",platform:"Instagram",format:"F4 — Trap Short",topic:"Trap: 'Binomial nomenclature — genus CAPITAL or small?'",face:"iPad faceless",status:"Plan",notes:"Most asked confusion — high share potential"},
+  {day:6,date:"Thu",platform:"Instagram",format:"F3 — DPP Reel",topic:"DPP Day 1 — Ch 1 MCQs. 'Full 8 questions link in bio'",face:"Face cam",status:"Plan",notes:"Launch DPP as FREE for Week 1"},
+  {day:7,date:"Fri",platform:"Instagram",format:"F7 — Mnemonic Reel",topic:"Mnemonic: Taxonomic hierarchy — 'Kings Play Chess On Fine Grain Sand'",face:"iPad drawing",status:"Plan",notes:"60 sec. End with 'Save karo'"},
+  {day:8,date:"Sat",platform:"YouTube",format:"F9 — Behind the Teaching",topic:"How I prepared Ch 1 — annotating NCERT, finding specimens",face:"Full face casual",status:"Plan",notes:"Show your NCERT with annotations."},
+  {day:9,date:"Sun",platform:"YouTube",format:"F8 — Exam Tips",topic:"NEET Biology: How to plan your first month",face:"Full face",status:"Plan",notes:"Post before 10AM Sunday."},
+];
+
+const CHECKLIST=[
+  {step:1,task:"Read full NCERT chapter + mark PYQ-relevant content",tool:"NCERT + PYQ papers",time:"45 min",output:"Annotated chapter notes"},
+  {step:2,task:"Find 2–3 real NEET/KCET PYQs for this chapter",tool:"Toppr / Embibe / previous papers",time:"15 min",output:"3 questions for video opener"},
+  {step:3,task:"Write script outline (bullet points, NOT word-for-word)",tool:"Notes app / paper",time:"20 min",output:"Bullet point flow for iPad drawing"},
+  {step:4,task:"Prepare iPad canvas — blank GoodNotes/Notability file",tool:"GoodNotes / Notability",time:"5 min",output:"Fresh canvas with chapter title"},
+  {step:5,task:"Find real botanical specimen if applicable",tool:"Home garden / kitchen / market",time:"10 min",output:"Physical specimen OR reference image"},
+  {step:6,task:"Test audio + lighting for face cam segment",tool:"Ring light + lapel mic",time:"5 min",output:"Clear audio confirmed"},
+  {step:7,task:"Prepare 'Screenshot this' summary slide",tool:"GoodNotes / Canva",time:"10 min",output:"Summary slide ready"},
+  {step:8,task:"Create DPP questions for this chapter",tool:"Word / GoodNotes",time:"20 min",output:"5–10 MCQs ready"},
+];
+
+const RECORDING=[
+  {order:"1st",segment:"Face hook (chapter intro + PYQ challenge)",setup:"Front camera. Ring light. Clean background.",duration:"~2 min",tip:"High energy. Open in Kannada."},
+  {order:"2nd",segment:"PYQ questions reveal on iPad",setup:"iPad screen recording. GoodNotes. Large font.",duration:"~3 min",tip:"Build suspense — don't explain yet."},
+  {order:"3rd",segment:"Main chapter explanation (iPad)",setup:"iPad screen recording. Write as you speak. NEVER pre-draw.",duration:"~8–14 min",tip:"Mistakes are okay — real = relatable."},
+  {order:"4th",segment:"PYQ answers revealed + exam corner",setup:"iPad screen recording. Return to question slide.",duration:"~2–3 min",tip:"Connect answers back to concept just taught."},
+  {order:"5th",segment:"Face: CTA + product mention",setup:"Face cam. Warm, not pushy.",duration:"~30 sec",tip:"Mention 1 product max. DPP or chapter test."},
+  {order:"Bonus",segment:"Real specimen reel (if applicable)",setup:"Outdoor / kitchen. Natural light.",duration:"~2–3 min",tip:"Hold specimen confidently. Name it. Smile."},
+];
+
+const EDITING_RULES=[
+  {rule:"No dead air > 3 seconds",why:"Students skip — high pacing = high retention",how:"Jump cuts. Background music at 10–15% volume."},
+  {rule:"First 30 seconds = hook or die",why:"YouTube + Instagram algo ranks by watch time",how:"Script first 30 sec word-for-word. No intro. Start MID sentence."},
+  {rule:"Marker always moving",why:"Static iPad screen = sleeping pill",how:"Draw underlines, circles, arrows even while talking."},
+  {rule:"Face every 4–6 minutes",why:"Reconnects emotional bond, resets attention",how:"'Ee concept clear aitha? (face) Now deeper (iPad)'"},
+  {rule:"Chapters at end cards",why:"Drives watch time + sales + return visits",how:"YouTube end screen + pinned comment with 3 links."},
+  {rule:"Subtitles / captions always",why:"60%+ mobile viewers watch without sound",how:"Add captions in YouTube Studio. Check Kannada accuracy."},
+];
+
+// ── STYLES ──────────────────────────────────────────────────────────────
+const s={
+  app:{background:darkBg,minHeight:"100vh",color:"#d8f0e4"},
+  header:{padding:"18px 24px 0",borderBottom:`1px solid ${border}`},
+  logo:{display:"flex",alignItems:"center",gap:10,marginBottom:14},
+  logoMark:{width:34,height:34,background:green,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0},
+  logoText:{fontSize:20,fontWeight:500,color:green},
+  tabs:{display:"flex",gap:0,overflowX:"auto"},
+  tab:a=>({padding:"10px 15px",fontSize:13,fontWeight:a?500:400,color:a?green:muted,borderBottom:a?`2px solid ${green}`:"2px solid transparent",cursor:"pointer",background:"none",border:"none",whiteSpace:"nowrap"}),
+  body:{padding:"20px 24px"},
+  card:{background:cardBg,border:`1px solid ${border}`,borderRadius:12,padding:"20px"},
+  lbl:{fontSize:11,color:muted,marginBottom:5,display:"block",fontWeight:500,textTransform:"uppercase",letterSpacing:"0.6px"},
+  sel:{width:"100%",padding:"9px 12px",background:"#0a100d",border:`1px solid ${border}`,borderRadius:8,color:"#c0e8d0",fontSize:14,marginBottom:12},
+  inp:{width:"100%",padding:"9px 12px",background:"#0a100d",border:`1px solid ${border}`,borderRadius:8,color:"#c0e8d0",fontSize:14,marginBottom:12,boxSizing:"border-box"},
+  ta:{width:"100%",padding:"10px 12px",background:"#0a100d",border:`1px solid ${border}`,borderRadius:8,color:"#c0e8d0",fontSize:14,resize:"vertical",boxSizing:"border-box",lineHeight:1.7},
+  btn:{padding:"10px 22px",background:green,color:"#021a0a",fontWeight:500,fontSize:14,border:"none",borderRadius:8,cursor:"pointer"},
+  btnSm:{padding:"6px 13px",background:"none",color:green,fontSize:12,border:`1px solid ${border}`,borderRadius:6,cursor:"pointer",fontWeight:500},
+  out:{marginTop:18,background:"#060d09",border:`1px solid ${border}`,borderRadius:10,padding:"16px",fontSize:14,lineHeight:1.85,color:"#b8dfc8",whiteSpace:"pre-wrap"},
+  spin:{display:"inline-block",width:13,height:13,border:`2px solid ${border}`,borderTop:`2px solid ${green}`,borderRadius:"50%",animation:"spin 0.7s linear infinite",marginRight:7},
+  grid2:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:12},
+  badge:{display:"inline-block",padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:500,background:"#091a10",color:green,border:`1px solid ${border}`,marginRight:5,marginBottom:5},
+  sectionTitle:{fontSize:14,fontWeight:500,color:"#c0e8d0",marginBottom:12,marginTop:16,paddingBottom:6,borderBottom:`1px solid ${border}`},
+  infoCard:{background:"#080f0b",border:`1px solid ${border}`,borderRadius:10,padding:"14px 16px",marginBottom:10},
+  cmdBadge:a=>({display:"inline-block",padding:"5px 14px",borderRadius:6,fontSize:12,fontWeight:500,background:a?green:"transparent",color:a?"#021a0a":green,border:`1px solid ${a?green:border}`,marginRight:8,marginBottom:8,cursor:"pointer"}),
+  tableWrap:{overflowX:"auto",marginTop:12},
+  th:{padding:"8px 12px",fontSize:11,color:muted,textAlign:"left",fontWeight:500,textTransform:"uppercase",borderBottom:`1px solid ${border}`,whiteSpace:"nowrap"},
+  td:{padding:"9px 12px",fontSize:12,color:"#b0d8c0",borderBottom:`1px solid ${border}`,verticalAlign:"top"},
+  platformPill:p=>({display:"inline-block",padding:"2px 9px",borderRadius:12,fontSize:11,fontWeight:500,background:p==="YouTube"?"#1a0a0a":p==="Instagram"?"#1a0a18":"#0a0f1a",color:p==="YouTube"?"#ff6b6b":p==="Instagram"?"#c97aff":"#3d9bff",border:`1px solid ${p==="YouTube"?"#3a1010":p==="Instagram"?"#2a1030":"#0d1a2a"}`}),
+  statusColor:s=>s==="Done"?green:s==="In Progress"?"#f0a500":"#3a5a48",
+  checkRow:c=>({display:"flex",alignItems:"flex-start",gap:12,padding:"10px 0",borderBottom:`1px solid ${border}`,opacity:c?0.5:1,cursor:"pointer"}),
+};
+
+async function claude(prompt,sys=""){
+  const key=getKey();
+  const r=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:sys||"You are DrBio, an expert NEET biology content creator. Create content that builds awareness, engagement, and generates leads. Be science-accurate, student-friendly, and exam-focused. Use Hook→Awareness→Value→Engagement→CTA framework.",messages:[{role:"user",content:prompt}]})
+  });
+  const d=await r.json();
+  if(d.error)throw new Error(d.error.message);
+  return d.content?.map(b=>b.text||"").join("")||"";
+}
+
+function Loader(){return <span style={s.spin}/>;}
+
+// ── CONTENT CREATOR ─────────────────────────────────────────────────────
+function ContentCreator(){
+  const [chapter,setChapter]=useState(Object.keys(NEET_TOPICS)[0]);
+  const [topic,setTopic]=useState(NEET_TOPICS[Object.keys(NEET_TOPICS)[0]][0]);
+  const [platform,setPlatform]=useState("YouTube");
+  const [format,setFormat]=useState(FORMATS["YouTube"][0]);
+  const [tone,setTone]=useState("educational + engaging");
+  const [cmd,setCmd]=useState("");
+  const [extra,setExtra]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [out,setOut]=useState("");
+  const handleCh=v=>{setChapter(v);setTopic(NEET_TOPICS[v][0]);};
+  const handlePl=v=>{setPlatform(v);setFormat(FORMATS[v][0]);};
+  async function generate(){
+    setLoading(true);setOut("");
+    const prompt=cmd==="/optimize"
+      ?`OPTIMIZE this content for ${platform} for NEET Biology students. Apply Hook→Awareness→Value→Engagement→CTA:\n\n${extra}`
+      :`Create a "${format}" for ${platform} about "${topic}" (${chapter}) for NEET Biology students. Tone: ${tone}. Framework: Hook (PYQ or surprising fact) → Awareness → Core Value → Engagement Trigger → CTA/Lead Gen. ${cmd==="/analyze"?"Also: deep psychographic fit, exam weight, common mistakes, engagement score, improvement tips.":""} ${extra?`Extra: ${extra}`:""} Platform rules: YouTube=title+hook script+outline+end card CTA. Instagram=caption+hashtags+reel hook+save CTA. LinkedIn=professional+insight-led+end question.`;
+    try{setOut(await claude(prompt));}catch(e){setOut("Error: "+e.message);}
+    setLoading(false);
+  }
+  return(<div>
+    <div style={s.grid2}>
+      <div><label style={s.lbl}>Chapter</label><select style={s.sel} value={chapter} onChange={e=>handleCh(e.target.value)}>{Object.keys(NEET_TOPICS).map(c=><option key={c}>{c}</option>)}</select></div>
+      <div><label style={s.lbl}>Topic</label><select style={s.sel} value={topic} onChange={e=>setTopic(e.target.value)}>{NEET_TOPICS[chapter].map(t=><option key={t}>{t}</option>)}</select></div>
+    </div>
+    <div style={s.grid2}>
+      <div><label style={s.lbl}>Platform</label><select style={s.sel} value={platform} onChange={e=>handlePl(e.target.value)}>{Object.keys(FORMATS).map(p=><option key={p}>{p}</option>)}</select></div>
+      <div><label style={s.lbl}>Format</label><select style={s.sel} value={format} onChange={e=>setFormat(e.target.value)}>{FORMATS[platform].map(f=><option key={f}>{f}</option>)}</select></div>
+    </div>
+    <label style={s.lbl}>Tone</label>
+    <select style={s.sel} value={tone} onChange={e=>setTone(e.target.value)}>{["educational + engaging","storytelling","exam-focused","motivational","simple & visual","Kannada-English mixed","advanced & analytical"].map(t=><option key={t}>{t}</option>)}</select>
+    <label style={s.lbl}>Commands</label>
+    <div style={{marginBottom:12}}>{[["","None"],["/analyze","Deep Analyze"],["/optimize","Optimize Draft"]].map(([c,l])=><span key={c} style={s.cmdBadge(cmd===c)} onClick={()=>setCmd(cmd===c?"":c)}>{l}</span>)}</div>
+    {(cmd==="/optimize"||cmd==="/analyze")&&<><label style={s.lbl}>{cmd==="/optimize"?"Paste content to optimize":"Additional context"}</label><textarea style={{...s.ta,minHeight:70,marginBottom:12}} value={extra} onChange={e=>setExtra(e.target.value)} placeholder={cmd==="/optimize"?"Paste your draft here...":"Any specific angle or requirement..."}/></>}
+    <button style={s.btn} onClick={generate} disabled={loading}>{loading?<><Loader/>Generating...</>:"Generate Content"}</button>
+    {out&&<div style={s.out}>{out}<div style={{marginTop:14,display:"flex",gap:8}}><button style={s.btnSm} onClick={()=>{setCmd("/optimize");setExtra(out);}}>Optimize ↗</button><button style={s.btnSm} onClick={()=>navigator.clipboard?.writeText(out)}>Copy</button></div></div>}
+  </div>);
+}
+
+// ── CONTENT ANALYZER ────────────────────────────────────────────────────
+function ContentAnalyzer(){
+  const [content,setContent]=useState("");
+  const [platform,setPlatform]=useState("YouTube");
+  const [loading,setLoading]=useState(false);
+  const [out,setOut]=useState("");
+  async function analyze(){
+    if(!content.trim())return;
+    setLoading(true);setOut("");
+    try{setOut(await claude(`DEEP ANALYSIS — ${platform} content for DrBio NEET Biology channel:\n\n${content}\n\nAnalyze: 1) Hook strength /10 2) First 30 sec effectiveness 3) PYQ relevance & exam weight 4) Awareness→Engagement→Lead Gen framework 5) Platform optimization 6) Demographics fit (NEET 15–22) 7) Psychographics: aspirations/fears/motivations 8) CTA effectiveness 9) SEO score 10) Top 5 improvements 11) Overall score /100`,"You are a NEET content strategist. Sharp, specific, actionable analysis based on DrBio's production style."));}catch(e){setOut("Error: "+e.message);}
+    setLoading(false);
+  }
+  return(<div>
+    <label style={s.lbl}>Platform</label>
+    <select style={s.sel} value={platform} onChange={e=>setPlatform(e.target.value)}>{["YouTube","Instagram","LinkedIn"].map(p=><option key={p}>{p}</option>)}</select>
+    <label style={s.lbl}>Paste content for deep analysis</label>
+    <textarea style={{...s.ta,minHeight:130,marginBottom:14}} value={content} onChange={e=>setContent(e.target.value)} placeholder="Paste video script, caption, reel hook, or any content..."/>
+    <button style={s.btn} onClick={analyze} disabled={loading||!content.trim()}>{loading?<><Loader/>Analyzing...</>:"/analyze — Deep Analysis"}</button>
+    {out&&<div style={s.out}>{out}</div>}
+  </div>);
+}
+
+// ── STRATEGY PLANNER ────────────────────────────────────────────────────
+function StrategyPlanner(){
+  const [goal,setGoal]=useState("grow subscribers");
+  const [platform,setPlatform]=useState("YouTube");
+  const [phase,setPhase]=useState("awareness");
+  const [loading,setLoading]=useState(false);
+  const [out,setOut]=useState("");
+  async function plan(){
+    setLoading(true);setOut("");
+    try{setOut(await claude(`30-day NEET Biology content strategy for DrBio. Platform: ${platform}, Goal: ${goal}, Phase: ${phase}. Formats: F1–F9 (chapter explainer, MCQ, DPP reel, trap short, specimen reel, carousel, mnemonic, exam tips, behind teaching). Include: 30-day calendar, content pillars %, 15 post ideas with hooks, CTA strategy, funnel (free DPP→chapter test→course), posting schedule, hashtag bank, lead magnet ideas, 90-day milestones.`,"You are a top EdTech content strategist who knows DrBio's iPad-based NEET teaching style."));}catch(e){setOut("Error: "+e.message);}
+    setLoading(false);
+  }
+  return(<div>
+    <div style={s.grid2}>
+      <div><label style={s.lbl}>Platform</label><select style={s.sel} value={platform} onChange={e=>setPlatform(e.target.value)}>{["YouTube","Instagram","LinkedIn","All Platforms"].map(p=><option key={p}>{p}</option>)}</select></div>
+      <div><label style={s.lbl}>Goal</label><select style={s.sel} value={goal} onChange={e=>setGoal(e.target.value)}>{["grow subscribers","increase engagement","lead generation","launch DPP series","launch course","build authority"].map(g=><option key={g}>{g}</option>)}</select></div>
+    </div>
+    <label style={s.lbl}>Content Phase</label>
+    <select style={s.sel} value={phase} onChange={e=>setPhase(e.target.value)}>{["awareness","engagement","lead generation","conversion","retention"].map(p=><option key={p}>{p}</option>)}</select>
+    <button style={s.btn} onClick={plan} disabled={loading}>{loading?<><Loader/>Building...</>:"Generate 30-Day Strategy"}</button>
+    {out&&<div style={s.out}>{out}</div>}
+  </div>);
+}
+
+// ── PRODUCTION HUB ──────────────────────────────────────────────────────
+function ProductionHub(){
+  const [subtab,setSubtab]=useState("calendar");
+  const [checks,setChecks]=useState(Array(8).fill(false));
+  const [recChecks,setRecChecks]=useState(Array(6).fill(false));
+  const [editChecks,setEditChecks]=useState(Array(6).fill(false));
+  const [statuses,setStatuses]=useState(Array(9).fill("Plan"));
+  const [scriptTopic,setScriptTopic]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [out,setOut]=useState("");
+  const toggle=(arr,set,i)=>{const n=[...arr];n[i]=!n[i];set(n);};
+  const cycleStatus=i=>{const c=["Plan","In Progress","Done"];const n=[...statuses];n[i]=c[(c.indexOf(statuses[i])+1)%3];setStatuses(n);};
+  async function genScript(){
+    setLoading(true);setOut("");
+    try{setOut(await claude(`Full DrBio-style video script for: "${scriptTopic}". Structure: 1) FACE HOOK (30 sec — Kannada opening line, PYQ reveal) 2) PYQ REVEAL ON IPAD (build suspense) 3) MAIN EXPLANATION (iPad drawing outline, live drawing notes) 4) PYQ ANSWERS + EXAM CORNER 5) CTA + PRODUCT (1 product only, DPP link) 6) SPECIMEN REEL IDEA (if botanical). Plus: thumbnail concept, SEO title, description (100 words), 10 tags.`,"You are DrBio's scriptwriter. Match his iPad-teaching style: conversational, Kannada-English, high-energy, exam-obsessed."));}catch(e){setOut("Error: "+e.message);}
+    setLoading(false);
+  }
+  return(<div>
+    <div style={{display:"flex",gap:6,marginBottom:18,flexWrap:"wrap"}}>
+      {["calendar","checklist","recording","editing","script gen"].map(t=><span key={t} style={s.cmdBadge(subtab===t)} onClick={()=>setSubtab(t)}>{t.charAt(0).toUpperCase()+t.slice(1)}</span>)}
+    </div>
+    {subtab==="calendar"&&<div>
+      <div style={{...s.sectionTitle,marginTop:0}}>Week 1 — Launch Week: The Living World</div>
+      <div style={s.tableWrap}><table style={{width:"100%",borderCollapse:"collapse",minWidth:700}}>
+        <thead><tr>{["Day","Date","Platform","Format","Topic","Face Setup","Status","Notes"].map(h=><th key={h} style={s.th}>{h}</th>)}</tr></thead>
+        <tbody>{WEEK1.map((row,i)=>(
+          <tr key={i}>
+            <td style={{...s.td,color:green,fontWeight:500}}>{row.day}</td>
+            <td style={s.td}>{row.date}</td>
+            <td style={s.td}><span style={s.platformPill(row.platform)}>{row.platform}</span></td>
+            <td style={{...s.td,fontSize:11}}>{row.format}</td>
+            <td style={{...s.td,maxWidth:180,fontSize:12}}>{row.topic}</td>
+            <td style={{...s.td,fontSize:11,color:textSec}}>{row.face}</td>
+            <td style={s.td} onClick={()=>cycleStatus(i)} title="Click to cycle status"><span style={{cursor:"pointer",display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:s.statusColor(statuses[i]),display:"inline-block"}}/><span style={{fontSize:11,color:s.statusColor(statuses[i])}}>{statuses[i]}</span></span></td>
+            <td style={{...s.td,fontSize:11,color:textSec,maxWidth:160}}>{row.notes}</td>
+          </tr>
+        ))}</tbody>
+      </table></div>
+      <div style={{marginTop:10,fontSize:11,color:muted}}>Click Status to cycle: Plan → In Progress → Done</div>
+    </div>}
+    {subtab==="checklist"&&<div>
+      <div style={{...s.sectionTitle,marginTop:0}}>Pre-Production Checklist</div>
+      {CHECKLIST.map((item,i)=><div key={i} style={s.checkRow(checks[i])} onClick={()=>toggle(checks,setChecks,i)}>
+        <div style={{width:20,height:20,borderRadius:4,border:`1.5px solid ${checks[i]?green:border}`,background:checks[i]?green:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>
+          {checks[i]&&<svg width="12" height="12" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="#021a0a" strokeWidth="2" fill="none" strokeLinecap="round"/></svg>}
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:500,color:checks[i]?"#3a6a50":"#c0e8d0",marginBottom:3}}>Step {item.step}: {item.task}</div>
+          <div style={{display:"flex",gap:16,fontSize:11,color:muted,flexWrap:"wrap"}}><span>{item.tool}</span><span style={{color:green}}>{item.time}</span><span>→ {item.output}</span></div>
+        </div>
+      </div>)}
+    </div>}
+    {subtab==="recording"&&<div>
+      <div style={{...s.sectionTitle,marginTop:0}}>Recording Order</div>
+      {RECORDING.map((item,i)=><div key={i} style={{...s.infoCard,display:"flex",gap:14,opacity:recChecks[i]?0.5:1,cursor:"pointer"}} onClick={()=>toggle(recChecks,setRecChecks,i)}>
+        <div style={{width:36,height:36,borderRadius:8,background:recChecks[i]?green+"30":"#0d1f16",border:`1.5px solid ${recChecks[i]?green:border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:500,color:green,flexShrink:0}}>{item.order}</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:500,color:"#c0e8d0",marginBottom:4}}>{item.segment}</div>
+          <div style={{fontSize:12,color:textSec,marginBottom:4}}>{item.setup}</div>
+          <div style={{display:"flex",gap:12,fontSize:11,flexWrap:"wrap"}}><span style={{color:green}}>{item.duration}</span><span style={{color:"#8ab8a0"}}>{item.tip}</span></div>
+        </div>
+      </div>)}
+    </div>}
+    {subtab==="editing"&&<div>
+      <div style={{...s.sectionTitle,marginTop:0}}>Editing Non-Negotiables</div>
+      {EDITING_RULES.map((item,i)=><div key={i} style={{...s.infoCard,borderLeft:`3px solid ${editChecks[i]?green:border}`,opacity:editChecks[i]?0.5:1,cursor:"pointer"}} onClick={()=>toggle(editChecks,setEditChecks,i)}>
+        <div style={{fontSize:13,fontWeight:500,color:"#c0e8d0",marginBottom:5}}>{editChecks[i]?"✓ ":""}{item.rule}</div>
+        <div style={{fontSize:12,color:textSec,marginBottom:4}}><span style={{color:muted}}>Why: </span>{item.why}</div>
+        <div style={{fontSize:12,color:"#8ab8a0"}}><span style={{color:muted}}>How: </span>{item.how}</div>
+      </div>)}
+    </div>}
+    {subtab==="script gen"&&<div>
+      <div style={{...s.sectionTitle,marginTop:0}}>AI Script Generator — DrBio Style</div>
+      <label style={s.lbl}>Topic / Chapter</label>
+      <input style={s.inp} value={scriptTopic} onChange={e=>setScriptTopic(e.target.value)} placeholder="e.g. Photosynthesis — Light Reactions (Ch 13)"/>
+      <button style={s.btn} onClick={genScript} disabled={loading||!scriptTopic.trim()}>{loading?<><Loader/>Writing script...</>:"Generate Full Script"}</button>
+      {out&&<div style={s.out}>{out}<div style={{marginTop:12}}><button style={s.btnSm} onClick={()=>navigator.clipboard?.writeText(out)}>Copy script</button></div></div>}
+    </div>}
+  </div>);
+}
+
+// ── CHANNEL STRATEGY ────────────────────────────────────────────────────
+function ChannelStrategy(){
+  const [platform,setPlatform]=useState("YouTube");
+  const [loading,setLoading]=useState(false);
+  const [out,setOut]=useState("");
+  const pillars=[{icon:"◉",label:"Awareness",desc:"Free reels, specimen videos, PYQ traps",color:"#3d9bff",pct:40},{icon:"◎",label:"Engagement",desc:"MCQ practice, DPP series, Q&A",color:green,pct:35},{icon:"◆",label:"Lead Gen",desc:"Chapter tests, course previews, free PDFs",color:"#f0a500",pct:25}];
+  const funnel=[{stage:"Top — Awareness",content:"Specimen reels, mnemonic shorts, F4 trap questions",cta:"Subscribe / Follow / Save",color:"#3d9bff"},{stage:"Middle — Engagement",content:"Full chapter explainers (F1), MCQ practice (F2), DPP reels (F3)",cta:"Download free DPP / Join Telegram",color:green},{stage:"Bottom — Lead Gen",content:"Chapter test products, exam strategy (F8), BTS (F9)",cta:"Enroll in course / Buy chapter test",color:"#f0a500"}];
+  async function generate(){
+    setLoading(true);setOut("");
+    try{setOut(await claude(`Full ${platform} channel growth strategy for DrBio — NEET Biology educator. Style: iPad face-cam, specimen reels, Kannada-English, NCERT-focused. Formats F1–F9. Include: weekly posting schedule, viral content formats, community building, monetization funnel (free DPP→chapter tests→course), collaboration ideas, 90-day milestone targets, weekly KPIs, cross-platform repurposing strategy.`,"Top EdTech channel growth strategist who understands DrBio's teaching style and NEET student psychology."));}catch(e){setOut("Error: "+e.message);}
+    setLoading(false);
+  }
+  return(<div>
+    <div style={{...s.sectionTitle,marginTop:0}}>Content Pillars</div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
+      {pillars.map((p,i)=><div key={i} style={{...s.infoCard,borderLeft:`3px solid ${p.color}`}}>
+        <div style={{fontSize:22,color:p.color,marginBottom:6}}>{p.icon}</div>
+        <div style={{fontSize:13,fontWeight:500,color:"#c0e8d0"}}>{p.label}</div>
+        <div style={{fontSize:22,fontWeight:500,color:p.color,margin:"4px 0"}}>{p.pct}%</div>
+        <div style={{height:4,background:border,borderRadius:2,marginBottom:8}}><div style={{width:`${p.pct}%`,height:"100%",background:p.color,borderRadius:2}}/></div>
+        <div style={{fontSize:11,color:textSec}}>{p.desc}</div>
+      </div>)}
+    </div>
+    <div style={s.sectionTitle}>Content Funnel</div>
+    {funnel.map((f,i)=><div key={i} style={{...s.infoCard,borderLeft:`3px solid ${f.color}`,marginBottom:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
+        <div><div style={{fontSize:12,color:f.color,fontWeight:500,marginBottom:4}}>{f.stage}</div><div style={{fontSize:13,color:"#a0d0b8"}}>{f.content}</div></div>
+        <span style={{padding:"4px 12px",borderRadius:20,fontSize:11,fontWeight:500,background:f.color+"20",color:f.color,border:`1px solid ${f.color}50`,whiteSpace:"nowrap"}}>{f.cta}</span>
+      </div>
+    </div>)}
+    <div style={s.sectionTitle}>Generate Platform Strategy</div>
+    <select style={s.sel} value={platform} onChange={e=>setPlatform(e.target.value)}>{["YouTube","Instagram","LinkedIn","All Platforms"].map(p=><option key={p}>{p}</option>)}</select>
+    <button style={s.btn} onClick={generate} disabled={loading}>{loading?<><Loader/>Building...</>:`Generate ${platform} Strategy`}</button>
+    {out&&<div style={s.out}>{out}</div>}
+  </div>);
+}
+
+// ── APP ROOT ─────────────────────────────────────────────────────────────
+function App(){
+  const [tab,setTab]=useState(0);
+  const [showKeyReset,setShowKeyReset]=useState(false);
+  return(<div style={s.app}>
+    <div style={s.header}>
+      <div style={s.logo}>
+        <div style={s.logoMark}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="3.5" fill="#021a0a"/><path d="M9 2C9 2 13 5 13 9C13 13 9 16 9 16C9 16 5 13 5 9C5 5 9 2 9 2Z" stroke="#021a0a" strokeWidth="1.5" fill="none"/><circle cx="9" cy="9" r="7.5" stroke="#021a0a" strokeWidth="1" fill="none"/></svg>
+        </div>
+        <div>
+          <div style={s.logoText}>DrBio</div>
+          <div style={{fontSize:11,color:muted}}>NEET Content Intelligence Platform</div>
+        </div>
+        <div style={{marginLeft:"auto",display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+          {["NEET Biology","AI Powered","YT · IG · LI"].map((b,i)=><span key={i} style={s.badge}>{b}</span>)}
+          <span style={{...s.badge,cursor:"pointer",color:"#f0a500",borderColor:"#f0a500"}} onClick={()=>{localStorage.removeItem('drbio_api_key');location.reload();}}>Reset Key</span>
+        </div>
+      </div>
+      <div style={s.tabs}>{TABS.map((t,i)=><button key={i} style={s.tab(tab===i)} onClick={()=>setTab(i)}>{t}</button>)}</div>
+    </div>
+    <div style={s.body}><div style={s.card}>
+      {tab===0&&<ContentCreator/>}
+      {tab===1&&<ContentAnalyzer/>}
+      {tab===2&&<StrategyPlanner/>}
+      {tab===3&&<ProductionHub/>}
+      {tab===4&&<ChannelStrategy/>}
+    </div></div>
+  </div>);
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
